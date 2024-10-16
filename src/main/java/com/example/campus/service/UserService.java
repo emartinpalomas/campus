@@ -1,157 +1,106 @@
 package com.example.campus.service;
 
-import com.example.campus.entity.PasswordResetToken;
 import com.example.campus.entity.User;
-import com.example.campus.exception.FailedToSendEmailException;
-import com.example.campus.exception.InvalidTokenException;
-import com.example.campus.exception.TokenExpiredException;
-import com.example.campus.repository.PasswordResetTokenRepository;
+import com.example.campus.exception.UserAlreadyExistsException;
+import com.example.campus.exception.UserCreationFailedException;
 import com.example.campus.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.spring6.SpringTemplateEngine;
 
-import java.security.SecureRandom;
-import java.text.Normalizer;
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Slf4j
 public class UserService {
+    public static final int USERNAME_MAX_LENGTH = 20;
+    public static final int MAX_RETRIES = 3;
     private final UserRepository userRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
-    private final JavaMailSender mailSender;
-    private final SpringTemplateEngine templateEngine;
-
-    @Value("${token.expiry.duration}")
-    private int tokenExpiryDuration;
+    private final TextSanitizer textSanitizer;
 
     public UserService(
             UserRepository userRepository,
-            PasswordResetTokenRepository passwordResetTokenRepository,
-            BCryptPasswordEncoder passwordEncoder,
-            JavaMailSender mailSender,
-            SpringTemplateEngine templateEngine
+            TextSanitizer textSanitizer
     ) {
         this.userRepository = userRepository;
-        this.passwordResetTokenRepository = passwordResetTokenRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.mailSender = mailSender;
-        this.templateEngine = templateEngine;
+        this.textSanitizer = textSanitizer;
     }
 
     public User createUser(User user) {
         Optional<User> existingUser = userRepository.findByNationalIdAndCountry(user.getNationalId(), user.getCountry());
         if (existingUser.isPresent()) {
-            throw new IllegalArgumentException("User already exists");
+            log.error("Attempted to create user that already exists: {}", user);
+            throw new UserAlreadyExistsException("User already exists");
         }
         String username = generateUsername(user);
         user.setUsername(username);
-        initiatePasswordReset(user);
         log.info("User created with username: {}", username);
-        return userRepository.save(user);
+
+        int retryCount = 0;
+        int maxRetries = MAX_RETRIES;
+
+        Throwable cause = null;
+        while (retryCount < maxRetries) {
+            try {
+                return userRepository.save(user);
+            } catch (DataIntegrityViolationException e) {
+                cause = e.getCause();
+                log.error("Data integrity violation: {}", cause != null ? cause.getMessage() : "Unknown cause");
+                user.setUsername(generateUsername(user));
+                retryCount++;
+            }
+        }
+        throw new UserCreationFailedException("Failed to create user after " + maxRetries + " attempts", cause);
     }
 
     private String generateUsername(User user) {
-        List<String> allUsernames = userRepository.findAllUsernames();
-        String name = Normalizer.normalize(user.getName(), Normalizer.Form.NFD).replaceAll("\\s+", "").replaceAll("[^\\p{ASCII}]", "").toLowerCase();
-        String firstSurname = Normalizer.normalize(user.getFirstSurname(), Normalizer.Form.NFD).replaceAll("\\s+", "").replaceAll("[^\\p{ASCII}]", "").toLowerCase();
+        Set<String> allUsernames = new HashSet<>(userRepository.findAllUsernames());
+        String name = textSanitizer.normalize(user.getName());
+        String firstSurname = textSanitizer.normalize(user.getFirstSurname());
         String secondSurname = user.getSecondSurname();
-        if (secondSurname != null) {
-            secondSurname = Normalizer.normalize(secondSurname, Normalizer.Form.NFD).replaceAll("\\s+", "").replaceAll("[^\\p{ASCII}]", "").toLowerCase();
-        }
+        if (secondSurname != null) secondSurname = textSanitizer.normalize(secondSurname);
 
-        String baseUsername = name.charAt(0) + firstSurname;
-        String username = baseUsername;
-        if (allUsernames.contains(username) && secondSurname != null) {
-            int index = 0;
-            while (allUsernames.contains(username) && index < secondSurname.length()) {
-                username = baseUsername + secondSurname.substring(0, ++index);
-            }
-        }
-        int index = 1;
-        while (allUsernames.contains(username) && index < name.length()) {
-            username = name.substring(0, ++index) + firstSurname + secondSurname;
-        }
+        String potentialUsername = obtainPotentialUsername(allUsernames, name, firstSurname, secondSurname, "");
+        if (potentialUsername != null) return potentialUsername;
+
         int num = 1;
-        while (allUsernames.contains(username)) {
-            username = baseUsername + num++;
+        while (true) {
+            potentialUsername = obtainPotentialUsername(allUsernames, name, firstSurname, secondSurname, String.valueOf(num));
+            if (potentialUsername != null) return potentialUsername;
+            num++;
         }
-        return username;
     }
 
-    public void initiatePasswordReset(User user) {
-        String token = generateSecureToken();
-        createPasswordResetTokenForUser(user, token);
-    }
-
-    private String generateSecureToken() {
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomBytes = new byte[24];
-        secureRandom.nextBytes(randomBytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-    }
-
-    private void createPasswordResetTokenForUser(User user, String token) {
-        PasswordResetToken myToken = new PasswordResetToken();
-        myToken.setUser(user);
-        myToken.setToken(token);
-        myToken.setExpiryDate(LocalDateTime.now().plusHours(tokenExpiryDuration));
-        passwordResetTokenRepository.save(myToken);
-
-        Context context = new Context();
-        context.setVariable("resetUrl", "http://localhost:8080/reset?token=" + token);
-        String emailContent = templateEngine.process("password-reset-email", context);
-
-        SimpleMailMessage passwordResetEmail = new SimpleMailMessage();
-        passwordResetEmail.setFrom("");
-        passwordResetEmail.setTo(user.getEmail());
-        passwordResetEmail.setSubject("Password Reset Request");
-        passwordResetEmail.setText(emailContent);
-
-        final int MAX_ATTEMPTS = 3;
-        for (int i = 0; i < MAX_ATTEMPTS; i++) {
-            try {
-                mailSender.send(passwordResetEmail);
-                return;
-            } catch (MailException e) {
-                log.error("Attempt {} to send password reset email failed", i + 1, e);
-                if (i < MAX_ATTEMPTS - 1) {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
+    private static String obtainPotentialUsername(Set<String> allUsernames, String name, String firstSurname, String secondSurname, String num) {
+        for (int nameIndex = 1; nameIndex <= name.length(); nameIndex++) {
+            if (secondSurname != null) {
+                for (int secondSurnameIndex = 0; secondSurnameIndex <= secondSurname.length(); secondSurnameIndex++) {
+                    StringBuilder potentialUsername = new StringBuilder(name.substring(0, nameIndex) + firstSurname + secondSurname.substring(0, secondSurnameIndex));
+                    StringBuilder username = evaluatePotentialUsername(allUsernames, num, potentialUsername);
+                    if (username != null) return username.toString();
                 }
+            } else {
+                StringBuilder potentialUsername = new StringBuilder(name.substring(0, nameIndex) + firstSurname);
+                StringBuilder username = evaluatePotentialUsername(allUsernames, num, potentialUsername);
+                if (username != null) return username.toString();
             }
         }
-        throw new FailedToSendEmailException("Failed to send password reset email after " + MAX_ATTEMPTS + " attempts");
+        return null;
     }
 
-    public void validatePasswordResetToken(String token, String newPassword) {
-        Optional<PasswordResetToken> maybeToken = passwordResetTokenRepository.findByToken(token);
-        if (maybeToken.isPresent()) {
-            PasswordResetToken resetToken = maybeToken.get();
-            if (resetToken.getExpiryDate().isAfter(LocalDateTime.now())) {
-                User user = resetToken.getUser();
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userRepository.save(user);
-                passwordResetTokenRepository.delete(resetToken);
-            } else {
-                throw new TokenExpiredException("Token has expired");
-            }
-        } else {
-            throw new InvalidTokenException("Invalid token");
+    private static StringBuilder evaluatePotentialUsername(Set<String> allUsernames, String num, StringBuilder potentialUsername) {
+        if (potentialUsername.length() > USERNAME_MAX_LENGTH) {
+            potentialUsername = new StringBuilder(potentialUsername.substring(0, USERNAME_MAX_LENGTH));
         }
+        if (!Objects.equals(num, "")) {
+            potentialUsername.append(num);
+        }
+        if (!allUsernames.contains(potentialUsername.toString())) {
+            return potentialUsername;
+        }
+        return null;
     }
 }
