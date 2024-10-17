@@ -3,7 +3,6 @@ package com.example.campus.controller;
 import com.example.campus.entity.User;
 import com.example.campus.exception.UserAlreadyExistsException;
 import com.example.campus.exception.UserCreationFailedException;
-import com.example.campus.service.PasswordResetService;
 import com.example.campus.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -15,14 +14,11 @@ import jakarta.validation.ConstraintViolationException;
 @RestController
 public class UserController {
     private final UserService userService;
-    private final PasswordResetService passwordResetService;
 
     public UserController(
-            UserService userService,
-            PasswordResetService passwordResetService
+            UserService userService
     ) {
         this.userService = userService;
-        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/user")
@@ -44,21 +40,5 @@ public class UserController {
                 .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
                 .reduce((message1, message2) -> message1 + ", " + message2)
                 .orElse("Validation error");
-    }
-
-    @PostMapping("/password-reset-request")
-    public ResponseEntity<?> createPasswordResetToken(@RequestParam String email) {
-        passwordResetService.createPasswordResetTokenForUser(email);
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
-        if (passwordResetService.validatePasswordResetToken(token)) {
-            passwordResetService.resetPassword(token, newPassword);
-            return new ResponseEntity<>(HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>("Invalid or expired token", HttpStatus.BAD_REQUEST);
-        }
     }
 }
