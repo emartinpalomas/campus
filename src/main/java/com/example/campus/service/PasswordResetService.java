@@ -17,13 +17,17 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final MailService mailService;
 
     public PasswordResetService(UserRepository userRepository,
                                 PasswordResetTokenRepository passwordResetTokenRepository,
-                                BCryptPasswordEncoder passwordEncoder) {
+                                BCryptPasswordEncoder passwordEncoder,
+                                MailService mailService
+    ) {
         this.userRepository = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.mailService = mailService;
     }
 
     public void createPasswordResetTokenForUser(String username) {
@@ -35,6 +39,8 @@ public class PasswordResetService {
         passwordResetToken.setToken(token);
         passwordResetToken.setExpiryDate(LocalDateTime.now().plusHours(1));
         passwordResetTokenRepository.save(passwordResetToken);
+
+        mailService.sendPasswordResetMail(user, token);
     }
 
     public boolean validatePasswordResetToken(String token) {

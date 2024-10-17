@@ -69,6 +69,7 @@ public class User {
     private Gender gender;
 
     @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_at")
@@ -80,20 +81,4 @@ public class User {
     @LastModifiedDate
     @PastOrPresent
     private LocalDateTime updatedAt;
-
-    public User(
-            String name,
-            String firstSurname,
-            String secondSurname,
-            String nationalId,
-            String country,
-            String email
-    ) {
-        this.name = name;
-        this.firstSurname = firstSurname;
-        this.secondSurname = secondSurname;
-        this.nationalId = nationalId;
-        this.country = country;
-        this.email = email;
-    }
 }
