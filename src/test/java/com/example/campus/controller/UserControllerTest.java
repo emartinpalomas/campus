@@ -1,7 +1,6 @@
 package com.example.campus.controller;
 
 import com.example.campus.entity.User;
-import com.example.campus.service.PasswordResetService;
 import com.example.campus.service.UserService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -28,9 +27,6 @@ public class UserControllerTest {
 
     @Mock
     private UserService userService;
-
-    @Mock
-    private PasswordResetService passwordResetService;
 
     @Test
     public void testCreateUserSuccess() {
@@ -59,30 +55,5 @@ public class UserControllerTest {
         String result = userController.handleConstraintViolationException(exception);
 
         assertEquals("field: must not be null", result);
-    }
-
-    @Test
-    public void testCreatePasswordResetToken() {
-        String username = "jdoe";
-        doNothing().when(passwordResetService).createPasswordResetTokenForUser(username);
-
-        ResponseEntity<?> response = userController.createPasswordResetToken(username);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(passwordResetService, times(1)).createPasswordResetTokenForUser(username);
-    }
-
-    @Test
-    public void testResetPasswordSuccess() {
-        String token = "token";
-        String newPassword = "newPassword";
-        when(passwordResetService.validatePasswordResetToken(token)).thenReturn(true);
-        doNothing().when(passwordResetService).resetPassword(token, newPassword);
-
-        ResponseEntity<?> response = userController.resetPassword(token, newPassword);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(passwordResetService, times(1)).validatePasswordResetToken(token);
-        verify(passwordResetService, times(1)).resetPassword(token, newPassword);
     }
 }

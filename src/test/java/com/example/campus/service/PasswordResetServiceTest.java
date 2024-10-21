@@ -24,6 +24,9 @@ public class PasswordResetServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private UserService userService;
+
+    @Mock
     private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Mock
@@ -46,7 +49,7 @@ public class PasswordResetServiceTest {
             return null;
         }).when(mockUser).setPassword(anyString());
         when(passwordEncoder.encode(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
-        passwordResetService = new PasswordResetService(userRepository, passwordResetTokenRepository, passwordEncoder, mailService);
+        passwordResetService = new PasswordResetService(userRepository, userService, passwordResetTokenRepository, passwordEncoder, mailService);
     }
 
     @Test
@@ -89,20 +92,23 @@ public class PasswordResetServiceTest {
     public void testResetPassword() {
         String token = "testToken";
         String newPassword = "newPassword";
-        PasswordResetToken mockToken = mock(PasswordResetToken.class);
 
-        when(mockToken.getUser()).thenReturn(mockUser);
-        when(passwordResetTokenRepository.findByToken(token)).thenReturn(mockToken);
+        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
+            PasswordResetToken passwordResetToken = mock(PasswordResetToken.class);
+            when(passwordResetToken.getExpiryDate()).thenReturn(LocalDateTime.now().plusHours(1));
+            when(passwordResetToken.getUser()).thenReturn(mockUser);
+            return passwordResetToken;
+        });
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        when(userRepository.save(userCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userService.saveUser(userCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
         passwordResetService.resetPassword(token, newPassword);
 
         User savedUser = userCaptor.getValue();
         verify(mockUser, times(1)).setPassword(anyString());
         assertEquals(newPassword, savedUser.getPassword());
-        verify(userRepository, times(1)).save(any(User.class));
+        verify(userService, times(1)).saveUser(any(User.class));
         verify(passwordResetTokenRepository, times(1)).delete(any(PasswordResetToken.class));
     }
 }

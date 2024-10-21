@@ -15,16 +15,19 @@ import java.util.UUID;
 public class PasswordResetService {
 
     private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final MailService mailService;
 
     public PasswordResetService(UserRepository userRepository,
+                                UserService userService,
                                 PasswordResetTokenRepository passwordResetTokenRepository,
                                 BCryptPasswordEncoder passwordEncoder,
                                 MailService mailService
     ) {
         this.userRepository = userRepository;
+        this.userService = userService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
@@ -43,16 +46,20 @@ public class PasswordResetService {
         mailService.sendPasswordResetMail(user, token);
     }
 
+    public void resetPassword(String token, String newPassword) {
+        if (validatePasswordResetToken(token)) {
+            PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(token);
+            User user = passwordResetToken.getUser();
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userService.saveUser(user);
+            passwordResetTokenRepository.delete(passwordResetToken);
+        } else {
+            throw new RuntimeException("Invalid or expired token");
+        }
+    }
+
     public boolean validatePasswordResetToken(String token) {
         PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(token);
         return passwordResetToken != null && passwordResetToken.getExpiryDate().isAfter(LocalDateTime.now());
-    }
-
-    public void resetPassword(String token, String newPassword) {
-        PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(token);
-        User user = passwordResetToken.getUser();
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        passwordResetTokenRepository.delete(passwordResetToken);
     }
 }
