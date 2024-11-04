@@ -1,14 +1,19 @@
 package com.example.campus.service;
 
-import com.example.campus.entity.Course;
-import com.example.campus.entity.DateRange;
+import com.example.campus.dto.UserRoleDTO;
+import com.example.campus.entity.*;
 import com.example.campus.exception.CourseNotFoundException;
+import com.example.campus.exception.RoleNotFoundException;
+import com.example.campus.exception.UserNotFoundException;
+import com.example.campus.repository.CourseRegistrationRepository;
 import com.example.campus.repository.CourseRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,11 +24,18 @@ public class CourseServiceTest {
 
     private CourseService courseService;
     private CourseRepository courseRepository;
+    private CourseRegistrationRepository courseRegistrationRepository;
+    private UserService userService;
+    private RoleService roleService;
 
     @BeforeEach
     public void setup() {
         courseRepository = Mockito.mock(CourseRepository.class);
-        courseService = new CourseService(courseRepository);
+        courseRegistrationRepository = Mockito.mock(CourseRegistrationRepository.class);
+        userService = Mockito.mock(UserService.class);
+        roleService = Mockito.mock(RoleService.class);
+        courseService = new CourseService(courseRepository, courseRegistrationRepository, roleService);
+        courseService.setUserService(userService);
     }
 
     @Test
@@ -135,6 +147,194 @@ public class CourseServiceTest {
         courseService.deleteCourse(1L);
 
         verify(courseRepository).deleteById(1L);
+    }
+
+    @Test
+    public void testGetUsersByCourseId() throws CourseNotFoundException {
+        Course course = new Course();
+        course.setId(1L);
+        User user1 = new User();
+        user1.setId(2L);
+        User user2 = new User();
+        user2.setId(3L);
+
+        CourseRegistration registration1 = new CourseRegistration();
+        registration1.setCourse(course);
+        registration1.setUser(user1);
+
+        CourseRegistration registration2 = new CourseRegistration();
+        registration2.setCourse(course);
+        registration2.setUser(user2);
+
+        course.setRegistrations(new ArrayList<>(List.of(registration1, registration2)));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+
+        List<User> users = courseService.getUsersByCourseId(1L);
+
+        assertEquals(2, users.size());
+        assertTrue(users.contains(user1));
+        assertTrue(users.contains(user2));
+    }
+
+    @Test
+    public void testAddUserToCourse() throws CourseNotFoundException, RoleNotFoundException, UserNotFoundException {
+        Course course = new Course();
+        course.setId(1L);
+        User user = new User();
+        user.setId(2L);
+        Role role = new Role();
+        role.setId(3L);
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(userService.findUserById(2L)).thenReturn(user);
+        when(roleService.findRoleById(3L)).thenReturn(role);
+
+        courseService.addUserToCourse(1L, 2L, 3L);
+
+        verify(courseRegistrationRepository).save(any(CourseRegistration.class));
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    public void testRemoveUserFromCourse() throws CourseNotFoundException, UserNotFoundException {
+        Course course = new Course();
+        course.setId(1L);
+        User user = new User();
+        user.setId(2L);
+
+        CourseRegistration courseRegistration = new CourseRegistration();
+        courseRegistration.setId(3L);
+        courseRegistration.setCourse(course);
+        courseRegistration.setUser(user);
+        course.setRegistrations(new ArrayList<>(List.of(courseRegistration)));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(userService.findUserById(2L)).thenReturn(user);
+        doNothing().when(courseRegistrationRepository).deleteById(3L);
+
+        courseService.removeUserFromCourse(1L, 2L);
+
+        assertTrue(course.getRegistrations().isEmpty());
+        verify(courseRegistrationRepository).delete(courseRegistration);
+    }
+
+    @Test
+    public void testGetUsersAndRolesByCourseId() throws CourseNotFoundException {
+        Course course = new Course();
+        course.setId(1L);
+        Role role = new Role();
+        role.setId(2L);
+        User user = new User();
+        user.setId(3L);
+
+        CourseRegistration courseRegistration = new CourseRegistration();
+        courseRegistration.setCourse(course);
+        courseRegistration.setRole(role);
+        courseRegistration.setUser(user);
+        course.setRegistrations(List.of(courseRegistration));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(roleService.findRoleById(2L)).thenReturn(role);
+        when(userService.findUserById(3L)).thenReturn(user);
+
+        List<UserRoleDTO> userRoles = courseService.getUsersAndRolesByCourseId(course.getId());
+
+        assertEquals(1, userRoles.size());
+        assertEquals(user.getId(), userRoles.get(0).getUserId());
+        assertEquals(role.getId(), userRoles.get(0).getRoleId());
+    }
+
+    @Test
+    public void testGetUsersWithRole() {
+        Course course = new Course();
+        course.setId(1L);
+        Role role = new Role();
+        role.setId(2L);
+        User user1 = new User();
+        user1.setId(3L);
+        User user2 = new User();
+        user2.setId(4L);
+
+        CourseRegistration registration1 = new CourseRegistration();
+        registration1.setCourse(course);
+        registration1.setRole(role);
+        registration1.setUser(user1);
+
+        CourseRegistration registration2 = new CourseRegistration();
+        registration2.setCourse(course);
+        registration2.setRole(role);
+        registration2.setUser(user2);
+
+        course.setRegistrations(Arrays.asList(registration1, registration2));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(roleService.findRoleById(2L)).thenReturn(role);
+
+        List<User> result = courseService.getUsersWithRole(1L, 2L);
+
+        assertEquals(2, result.size());
+        assertTrue(result.contains(user1));
+        assertTrue(result.contains(user2));
+    }
+
+    @Test
+    public void testGetUsersWithoutRole() {
+        Course course = new Course();
+        course.setId(1L);
+        Role role1 = new Role();
+        role1.setId(2L);
+        Role role2 = new Role();
+        role2.setId(3L);
+        User user1 = new User();
+        user1.setId(4L);
+        User user2 = new User();
+        user2.setId(5L);
+
+        CourseRegistration registration1 = new CourseRegistration();
+        registration1.setCourse(course);
+        registration1.setRole(role1);
+        registration1.setUser(user1);
+
+        CourseRegistration registration2 = new CourseRegistration();
+        registration2.setCourse(course);
+        registration2.setRole(role2);
+        registration2.setUser(user2);
+
+        course.setRegistrations(Arrays.asList(registration1, registration2));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(roleService.findRoleById(2L)).thenReturn(role1);
+
+        List<User> result = courseService.getUsersWithoutRole(1L, 2L);
+
+        assertEquals(1, result.size());
+        assertTrue(result.contains(user2));
+    }
+
+    @Test
+    public void testGetRoleByUserIdAndCourseId() throws CourseNotFoundException {
+        Course course = new Course();
+        course.setId(1L);
+        Role role = new Role();
+        role.setId(2L);
+        User user = new User();
+        user.setId(3L);
+
+        CourseRegistration courseRegistration = new CourseRegistration();
+        courseRegistration.setCourse(course);
+        courseRegistration.setRole(role);
+        courseRegistration.setUser(user);
+        course.setRegistrations(List.of(courseRegistration));
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+        when(roleService.findRoleById(2L)).thenReturn(role);
+        when(userService.findUserById(3L)).thenReturn(user);
+
+        Optional<Role> result = courseService.getRoleByUserIdAndCourseId(user.getId(), course.getId());
+
+        assertTrue(result.isPresent());
+        assertEquals(role, result.get());
     }
 
     @Test

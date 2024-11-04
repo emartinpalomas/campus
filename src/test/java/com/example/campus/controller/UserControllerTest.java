@@ -1,5 +1,7 @@
 package com.example.campus.controller;
 
+import com.example.campus.dto.CourseRoleDTO;
+import com.example.campus.entity.Course;
 import com.example.campus.entity.User;
 import com.example.campus.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,6 +95,120 @@ public class UserControllerTest {
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
         verify(userService, times(1)).deleteUser(userId);
+    }
+
+    @Test
+    public void testGetCoursesByUserId() {
+        Long userId = 1L;
+        List<Course> mockCourses = Collections.singletonList(new Course());
+
+        when(userService.getCoursesByUserId(userId)).thenReturn(mockCourses);
+
+        ResponseEntity<List<Course>> response = userController.getCoursesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockCourses, response.getBody());
+        verify(userService, times(1)).getCoursesByUserId(userId);
+    }
+
+    @Test
+    public void testGetActiveCoursesByUserId() {
+        Long userId = 1L;
+        List<Course> mockActiveCourses = Collections.singletonList(new Course());
+
+        when(userService.getActiveCoursesByUserId(userId)).thenReturn(mockActiveCourses);
+
+        ResponseEntity<List<Course>> response = userController.getActiveCoursesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockActiveCourses, response.getBody());
+        verify(userService, times(1)).getActiveCoursesByUserId(userId);
+    }
+
+    @Test
+    public void testGetOpenCoursesByUserId() {
+        Long userId = 1L;
+        List<Course> mockOpenCourses = Collections.singletonList(new Course());
+
+        when(userService.getOpenCoursesByUserId(userId)).thenReturn(mockOpenCourses);
+
+        ResponseEntity<List<Course>> response = userController.getOpenCoursesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockOpenCourses, response.getBody());
+        verify(userService, times(1)).getOpenCoursesByUserId(userId);
+    }
+
+    @Test
+    public void testGetCoursesAndRolesByUserId() {
+        Long userId = 1L;
+        List<CourseRoleDTO> mockCourseRoles = Collections.singletonList(new CourseRoleDTO());
+
+        when(userService.getCoursesAndRolesByUserId(userId)).thenReturn(mockCourseRoles);
+
+        ResponseEntity<List<CourseRoleDTO>> response = userController.getCoursesAndRolesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockCourseRoles, response.getBody());
+        verify(userService, times(1)).getCoursesAndRolesByUserId(userId);
+    }
+
+    @Test
+    public void testGetActiveCoursesAndRolesByUserId() {
+        Long userId = 1L;
+        List<CourseRoleDTO> mockCourseRoles = Collections.singletonList(new CourseRoleDTO());
+
+        when(userService.getActiveCoursesAndRolesByUserId(userId)).thenReturn(mockCourseRoles);
+
+        ResponseEntity<List<CourseRoleDTO>> response = userController.getActiveCoursesAndRolesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockCourseRoles, response.getBody());
+        verify(userService, times(1)).getActiveCoursesAndRolesByUserId(userId);
+    }
+
+    @Test
+    public void testGetOpenCoursesAndRolesByUserId() {
+        Long userId = 1L;
+        List<CourseRoleDTO> mockCourseRoles = Collections.singletonList(new CourseRoleDTO());
+
+        when(userService.getOpenCoursesAndRolesByUserId(userId)).thenReturn(mockCourseRoles);
+
+        ResponseEntity<List<CourseRoleDTO>> response = userController.getOpenCoursesAndRolesByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockCourseRoles, response.getBody());
+        verify(userService, times(1)).getOpenCoursesAndRolesByUserId(userId);
+    }
+
+    @Test
+    public void testAddRoleToUser() {
+        Long userId = 1L;
+        Long roleId = 2L;
+        User updatedUser = new User();
+
+        when(userService.addRoleToUser(userId, roleId)).thenReturn(updatedUser);
+
+        ResponseEntity<User> response = userController.addRoleToUser(userId, roleId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedUser, response.getBody());
+        verify(userService, times(1)).addRoleToUser(userId, roleId);
+    }
+
+    @Test
+    public void testRemoveRoleFromUser() {
+        Long userId = 1L;
+        Long roleId = 2L;
+        User updatedUser = new User();
+
+        when(userService.removeRoleFromUser(userId, roleId)).thenReturn(updatedUser);
+
+        ResponseEntity<User> response = userController.removeRoleFromUser(userId, roleId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedUser, response.getBody());
+        verify(userService, times(1)).removeRoleFromUser(userId, roleId);
     }
 
     @Test

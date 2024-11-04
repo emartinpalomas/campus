@@ -1,5 +1,7 @@
 package com.example.campus.controller;
 
+import com.example.campus.dto.CourseRoleDTO;
+import com.example.campus.entity.Course;
 import com.example.campus.entity.User;
 import com.example.campus.service.UserService;
 import jakarta.validation.Valid;
@@ -52,6 +54,62 @@ public class UserController {
         log.info("Deleting user with ID: {}", userId);
         userService.deleteUser(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{userId}/courses")
+    public ResponseEntity<List<Course>> getCoursesByUserId(@PathVariable Long userId) {
+        log.info("Fetching courses for user ID: {}", userId);
+        List<Course> courses = userService.getCoursesByUserId(userId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/courses-active")
+    public ResponseEntity<List<Course>> getActiveCoursesByUserId(@PathVariable Long userId) {
+        log.info("Fetching active courses for user ID: {}", userId);
+        List<Course> courses = userService.getActiveCoursesByUserId(userId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/courses-open")
+    public ResponseEntity<List<Course>> getOpenCoursesByUserId(@PathVariable Long userId) {
+        log.info("Fetching open courses for user ID: {}", userId);
+        List<Course> courses = userService.getOpenCoursesByUserId(userId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/courses-roles")
+    public ResponseEntity<List<CourseRoleDTO>> getCoursesAndRolesByUserId(@PathVariable Long userId) {
+        log.info("Fetching courses and roles for user ID: {}", userId);
+        List<CourseRoleDTO> courseRoleDTOs = userService.getCoursesAndRolesByUserId(userId);
+        return new ResponseEntity<>(courseRoleDTOs, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/courses-roles-active")
+    public ResponseEntity<List<CourseRoleDTO>> getActiveCoursesAndRolesByUserId(@PathVariable Long userId) {
+        log.info("Fetching active courses and roles for user ID: {}", userId);
+        List<CourseRoleDTO> courseRoleDTOs = userService.getActiveCoursesAndRolesByUserId(userId);
+        return new ResponseEntity<>(courseRoleDTOs, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/courses-roles-open")
+    public ResponseEntity<List<CourseRoleDTO>> getOpenCoursesAndRolesByUserId(@PathVariable Long userId) {
+        log.info("Fetching open courses and roles for user ID: {}", userId);
+        List<CourseRoleDTO> courseRoleDTOs = userService.getOpenCoursesAndRolesByUserId(userId);
+        return new ResponseEntity<>(courseRoleDTOs, HttpStatus.OK);
+    }
+
+    @PostMapping("/{userId}/role/{roleId}")
+    public ResponseEntity<User> addRoleToUser(@PathVariable Long userId, @PathVariable Long roleId) {
+        log.info("Adding role ID: {} to user ID: {}", roleId, userId);
+        User user = userService.addRoleToUser(userId, roleId);
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{userId}/role/{roleId}")
+    public ResponseEntity<User> removeRoleFromUser(@PathVariable Long userId, @PathVariable Long roleId) {
+        log.info("Removing role ID: {} from user ID: {}", roleId, userId);
+        User user = userService.removeRoleFromUser(userId, roleId);
+        return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     @PutMapping("/{userId}/activate")

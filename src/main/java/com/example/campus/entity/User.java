@@ -6,6 +6,10 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 @AllArgsConstructor
 @Builder
 @Data
@@ -53,4 +57,52 @@ public class User extends Auditable {
 
     @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
     private Boolean isActive = true;
+
+    @OneToMany(mappedBy = "user")
+    @JsonIgnore
+    @ToString.Exclude
+    private List<CourseRegistration> registrations = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @JsonIgnore
+    @ToString.Exclude
+    private List<Role> roles = new ArrayList<>();
+
+    @JsonIgnore
+    public List<Course> getCourses() {
+        List<Course> courses = new ArrayList<>();
+        for (CourseRegistration registration : registrations) {
+            courses.add(registration.getCourse());
+        }
+        return courses;
+    }
+
+    @JsonIgnore
+    public List<Course> getActiveCourses() {
+        List<Course> activeCourses = new ArrayList<>();
+        for (CourseRegistration registration : registrations) {
+            Course course = registration.getCourse();
+            if (course.getIsActive()) {
+                activeCourses.add(course);
+            }
+        }
+        return activeCourses;
+    }
+
+    @JsonIgnore
+    public List<Course> getOpenCourses() {
+        List<Course> openCourses = new ArrayList<>();
+        for (CourseRegistration registration : registrations) {
+            Course course = registration.getCourse();
+            if (course.getDates() != null && course.getDates().getStartDate().isBefore(LocalDateTime.now()) && course.getDates().getEndDate().isAfter(LocalDateTime.now())) {
+                openCourses.add(course);
+            }
+        }
+        return openCourses;
+    }
 }

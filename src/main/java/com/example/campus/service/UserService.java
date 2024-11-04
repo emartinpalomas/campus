@@ -1,5 +1,6 @@
 package com.example.campus.service;
 
+import com.example.campus.dto.CourseRoleDTO;
 import com.example.campus.entity.*;
 import com.example.campus.exception.*;
 import com.example.campus.repository.UserRepository;
@@ -8,21 +9,30 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class UserService {
     public static final int USERNAME_MAX_LENGTH = 20;
     public static final int MAX_RETRIES = 3;
+    private final RoleService roleService;
     private final TextSanitizer textSanitizer;
     private final UserRepository userRepository;
+    private CourseService courseService;
 
     public UserService(
+            RoleService roleService,
             TextSanitizer textSanitizer,
             UserRepository userRepository
     ) {
+        this.roleService = roleService;
         this.textSanitizer = textSanitizer;
         this.userRepository = userRepository;
+    }
+
+    public void setCourseService(CourseService courseService) {
+        this.courseService = courseService;
     }
 
     public List<User> findAllUsers() {
@@ -78,6 +88,50 @@ public class UserService {
     public void deleteUser(Long userId) {
         log.info("Deleting user with id: {}", userId);
         userRepository.deleteById(userId);
+    }
+
+    public List<Course> getCoursesByUserId(Long userId) throws UserNotFoundException {
+        User user = findUserById(userId);
+        return user.getCourses();
+    }
+
+    public List<Course> getActiveCoursesByUserId(Long userId) throws UserNotFoundException {
+        User user = findUserById(userId);
+        return user.getActiveCourses();
+    }
+
+    public List<Course> getOpenCoursesByUserId(Long userId) throws UserNotFoundException {
+        User user = findUserById(userId);
+        return user.getOpenCourses();
+    }
+
+    public List<CourseRoleDTO> getCoursesAndRolesByUserId(Long userId) throws CourseNotFoundException, UserNotFoundException {
+        List<Course> courses = getCoursesByUserId(userId);
+        return getCourseRoleDTOS(userId, courses);
+    }
+
+    public List<CourseRoleDTO> getActiveCoursesAndRolesByUserId(Long userId) throws CourseNotFoundException, UserNotFoundException {
+        List<Course> courses = getActiveCoursesByUserId(userId);
+        return getCourseRoleDTOS(userId, courses);
+    }
+
+    public List<CourseRoleDTO> getOpenCoursesAndRolesByUserId(Long userId) throws CourseNotFoundException, UserNotFoundException {
+        List<Course> courses = getOpenCoursesByUserId(userId);
+        return getCourseRoleDTOS(userId, courses);
+    }
+
+    public User addRoleToUser(Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
+        User user = findUserById(userId);
+        Role role = roleService.findRoleById(roleId);
+        user.getRoles().add(role);
+        return saveUser(user);
+    }
+
+    public User removeRoleFromUser(Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
+        User user = findUserById(userId);
+        Role role = roleService.findRoleById(roleId);
+        user.getRoles().remove(role);
+        return saveUser(user);
     }
 
     public User activateUser(Long userId) throws UserNotFoundException {
@@ -153,5 +207,22 @@ public class UserService {
             nationalIdInfo.setCountry(userDetails.getNationalIdInfo().getCountry());
         }
         return nationalIdInfo;
+    }
+
+    private List<CourseRoleDTO> getCourseRoleDTOS(Long userId, List<Course> courses) throws CourseNotFoundException {
+        return courses.stream().map(course -> {
+            Optional<Role> role = courseService.getRoleByUserIdAndCourseId(userId, course.getId());
+            CourseRoleDTO dto = new CourseRoleDTO();
+            dto.setCourseId(course.getId());
+            dto.setCourseName(course.getName());
+            if (role.isPresent()) {
+                dto.setRoleId(role.get().getId());
+                dto.setRoleName(role.get().getName());
+            } else {
+                dto.setRoleId(null);
+                dto.setRoleName("No Role");
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 }
