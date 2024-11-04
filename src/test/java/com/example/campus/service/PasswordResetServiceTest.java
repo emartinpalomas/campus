@@ -2,26 +2,21 @@ package com.example.campus.service;
 
 import com.example.campus.entity.PasswordResetToken;
 import com.example.campus.entity.User;
+import com.example.campus.exception.InvalidTokenException;
 import com.example.campus.repository.PasswordResetTokenRepository;
-import com.example.campus.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class PasswordResetServiceTest {
-
-    @Mock
-    private UserRepository userRepository;
 
     @Mock
     private UserService userService;
@@ -49,14 +44,14 @@ public class PasswordResetServiceTest {
             return null;
         }).when(mockUser).setPassword(anyString());
         when(passwordEncoder.encode(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
-        passwordResetService = new PasswordResetService(userRepository, userService, passwordResetTokenRepository, passwordEncoder, mailService);
+        passwordResetService = new PasswordResetService(userService, passwordResetTokenRepository, passwordEncoder, mailService);
     }
 
     @Test
     public void testCreatePasswordResetTokenForUser() {
         String username = "testUser";
 
-        when(userRepository.findByUsername(username)).thenReturn(Optional.of(mockUser));
+        when(userService.findUserByUsername(username)).thenReturn(mockUser);
         doAnswer(invocation -> {
             PasswordResetToken token = invocation.getArgument(0);
             assertEquals(mockUser, token.getUser());
@@ -89,26 +84,49 @@ public class PasswordResetServiceTest {
     }
 
     @Test
-    public void testResetPassword() {
-        String token = "testToken";
+    public void testResetPasswordWithValidToken() throws InvalidTokenException {
+        String token = "validToken";
         String newPassword = "newPassword";
+        PasswordResetToken mockToken = mock(PasswordResetToken.class);
 
-        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
-            PasswordResetToken passwordResetToken = mock(PasswordResetToken.class);
-            when(passwordResetToken.getExpiryDate()).thenReturn(LocalDateTime.now().plusHours(1));
-            when(passwordResetToken.getUser()).thenReturn(mockUser);
-            return passwordResetToken;
-        });
-
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        when(userService.saveUser(userCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordResetTokenRepository.findByToken(token)).thenReturn(mockToken);
+        when(mockToken.getExpiryDate()).thenReturn(LocalDateTime.now().plusHours(1));
+        when(mockToken.getUser()).thenReturn(mockUser);
 
         passwordResetService.resetPassword(token, newPassword);
 
-        User savedUser = userCaptor.getValue();
-        verify(mockUser, times(1)).setPassword(anyString());
-        assertEquals(newPassword, savedUser.getPassword());
-        verify(userService, times(1)).saveUser(any(User.class));
-        verify(passwordResetTokenRepository, times(1)).delete(any(PasswordResetToken.class));
+        verify(mockUser, times(1)).setPassword(newPassword);
+        verify(userService, times(1)).saveUser(mockUser);
+        verify(passwordResetTokenRepository, times(1)).delete(mockToken);
+    }
+
+    @Test
+    public void testResetPasswordWithInvalidToken() {
+        String token = "invalidToken";
+        String newPassword = "newPassword";
+
+        when(passwordResetTokenRepository.findByToken(token)).thenReturn(null);
+
+        assertThrows(InvalidTokenException.class, () -> passwordResetService.resetPassword(token, newPassword));
+
+        verify(mockUser, never()).setPassword(anyString());
+        verify(userService, never()).saveUser(any(User.class));
+        verify(passwordResetTokenRepository, never()).delete(any(PasswordResetToken.class));
+    }
+
+    @Test
+    public void testResetPasswordWithExpiredToken() {
+        String token = "expiredToken";
+        String newPassword = "newPassword";
+        PasswordResetToken mockToken = mock(PasswordResetToken.class);
+
+        when(passwordResetTokenRepository.findByToken(token)).thenReturn(mockToken);
+        when(mockToken.getExpiryDate()).thenReturn(LocalDateTime.now().minusHours(1));
+
+        assertThrows(InvalidTokenException.class, () -> passwordResetService.resetPassword(token, newPassword));
+
+        verify(mockUser, never()).setPassword(anyString());
+        verify(userService, never()).saveUser(any(User.class));
+        verify(passwordResetTokenRepository, never()).delete(any(PasswordResetToken.class));
     }
 }

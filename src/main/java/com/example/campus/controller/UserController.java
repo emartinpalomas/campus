@@ -1,44 +1,70 @@
 package com.example.campus.controller;
 
 import com.example.campus.entity.User;
-import com.example.campus.exception.UserAlreadyExistsException;
-import com.example.campus.exception.UserCreationFailedException;
 import com.example.campus.service.UserService;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/users")
+@RequestMapping("/api/users")
+@Slf4j
 public class UserController {
     private final UserService userService;
 
-    public UserController(
-            UserService userService
-    ) {
+    public UserController(UserService userService) {
         this.userService = userService;
     }
 
-    @PostMapping
-    public ResponseEntity<?> createUser(@Valid @RequestBody User user) {
-        try {
-            User createdUser = userService.createUser(user);
-            return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
-        } catch (UserAlreadyExistsException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
-        } catch (UserCreationFailedException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+    @GetMapping
+    public ResponseEntity<List<User>> getAllUsers() {
+        log.info("Fetching all users");
+        List<User> users = userService.findAllUsers();
+        return new ResponseEntity<>(users, HttpStatus.OK);
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public String handleConstraintViolationException(ConstraintViolationException ex) {
-        return ex.getConstraintViolations()
-                .stream()
-                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
-                .reduce((message1, message2) -> message1 + ", " + message2)
-                .orElse("Validation error");
+    @PostMapping
+    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
+        log.info("Creating user with username: {}", user.getUsername());
+        User createdUser = userService.createUser(user);
+        return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
+    }
+    @GetMapping("/{userId}")
+    public ResponseEntity<User> getUserById(@PathVariable Long userId) {
+        log.info("Fetching user with ID: {}", userId);
+        User user = userService.findUserById(userId);
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    @PutMapping("/{userId}")
+    public ResponseEntity<User> updateUser(@PathVariable Long userId, @RequestBody User userDetails) {
+        log.info("Updating user with ID: {}", userId);
+        User updatedUser = userService.updateUser(userId, userDetails);
+        return new ResponseEntity<>(updatedUser, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
+        log.info("Deleting user with ID: {}", userId);
+        userService.deleteUser(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{userId}/activate")
+    public ResponseEntity<User> activateUser(@PathVariable Long userId) {
+        log.info("Activating user with ID: {}", userId);
+        User user = userService.activateUser(userId);
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    @PutMapping("/{userId}/deactivate")
+    public ResponseEntity<User> deactivateUser(@PathVariable Long userId) {
+        log.info("Deactivating user with ID: {}", userId);
+        User user = userService.deactivateUser(userId);
+        return new ResponseEntity<>(user, HttpStatus.OK);
     }
 }

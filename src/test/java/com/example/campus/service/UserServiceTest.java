@@ -1,6 +1,8 @@
 package com.example.campus.service;
 
+import com.example.campus.entity.NationalIdInfo;
 import com.example.campus.entity.User;
+import com.example.campus.exception.UserNotFoundException;
 import com.example.campus.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,9 +10,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 public class UserServiceTest {
@@ -21,7 +24,19 @@ public class UserServiceTest {
 
     @BeforeEach
     public void setup() {
-        userService = new UserService(userRepository, new DummyNormalizer());
+        userService = new UserService(new DummyNormalizer(), userRepository);
+    }
+
+    @Test
+    public void testFindAllUsers() {
+        User user1 = getUser();
+        User user2 = getUser2();
+
+        List<User> users = userService.findAllUsers();
+
+        assertEquals(2, users.size());
+        assertTrue(users.contains(user1));
+        assertTrue(users.contains(user2));
     }
 
     @Test
@@ -63,15 +78,106 @@ public class UserServiceTest {
         }
     }
 
+    @Test
+    public void testFindUserById() {
+        User user = getUser();
+
+        User foundUser = userService.findUserById(user.getId());
+
+        assertEquals(user, foundUser);
+
+        assertThrows(UserNotFoundException.class, () -> userService.findUserById(999L));
+    }
+
+    @Test
+    public void testFindUserByUsername() {
+        User user = getUser();
+
+        User foundUser = userService.findUserByUsername(user.getUsername());
+
+        assertEquals(user, foundUser);
+
+        assertThrows(UserNotFoundException.class, () -> userService.findUserByUsername("nonexistent"));
+    }
+
+    @Test
+    public void testUpdateUser() {
+        User user = getUser();
+
+        User userDetails = new User();
+        userDetails.setName("Alice Updated");
+
+        User updatedUser = userService.updateUser(user.getId(), userDetails);
+
+        assertEquals("Alice Updated", updatedUser.getName());
+    }
+
+    @Test
+    public void testDeleteUser() {
+        User user = getUser();
+
+        userService.deleteUser(user.getId());
+
+        assertFalse(userRepository.findById(user.getId()).isPresent());
+    }
+
+    @Test
+    public void testActivateUser() {
+        User user = getUser();
+        user.setIsActive(false);
+        userRepository.save(user);
+
+        userService.activateUser(user.getId());
+
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertTrue(updatedUser.getIsActive());
+    }
+
+    @Test
+    public void testDeactivateUser() {
+        User user = getUser();
+        user.setIsActive(true);
+        userRepository.save(user);
+
+        userService.deactivateUser(user.getId());
+
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertFalse(updatedUser.getIsActive());
+    }
+
+    @Test
+    public void testSaveUser() {
+        User user = getUser();
+        User savedUser = userService.saveUser(user);
+        assertNotNull(savedUser);
+        assertEquals("Alice", savedUser.getName());
+    }
+
+    private User getUser() {
+        User user = createUser("Alice", "123450", "alice@example.com");
+        return userService.createUser(user);
+    }
+
+    private User getUser2() {
+        User user = createUser("Bob", "123451", "bob@example.com");
+        return userService.createUser(user);
+    }
+
     private User createUser(String name, String nationalId, String email) {
         User user = new User();
         user.setName(name);
         user.setFirstSurname("Doe");
         user.setSecondSurname("Pou");
-        user.setNationalId(nationalId);
-        user.setCountry("Chile");
+        user.setNationalIdInfo(createNationalIdInfo(nationalId));
         user.setEmail(email);
         user.setIsActive(true);
         return user;
+    }
+
+    private NationalIdInfo createNationalIdInfo(String nationalId) {
+        NationalIdInfo nationalIdInfo = new NationalIdInfo();
+        nationalIdInfo.setNationalId(nationalId);
+        nationalIdInfo.setCountry("Canada");
+        return nationalIdInfo;
     }
 }

@@ -1,36 +1,36 @@
 package com.example.campus.service;
 
-import com.example.campus.entity.User;
-import com.example.campus.exception.UserAlreadyExistsException;
-import com.example.campus.exception.UserCreationFailedException;
+import com.example.campus.entity.*;
+import com.example.campus.exception.*;
 import com.example.campus.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Slf4j
 public class UserService {
     public static final int USERNAME_MAX_LENGTH = 20;
     public static final int MAX_RETRIES = 3;
-    private final UserRepository userRepository;
     private final TextSanitizer textSanitizer;
+    private final UserRepository userRepository;
 
     public UserService(
-            UserRepository userRepository,
-            TextSanitizer textSanitizer
+            TextSanitizer textSanitizer,
+            UserRepository userRepository
     ) {
-        this.userRepository = userRepository;
         this.textSanitizer = textSanitizer;
+        this.userRepository = userRepository;
     }
 
-    public User createUser(User user) {
-        Optional<User> existingUser = userRepository.findByNationalIdAndCountry(user.getNationalId(), user.getCountry());
+    public List<User> findAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User createUser(User user) throws UserAlreadyExistsException, UserCreationFailedException {
+        Optional<User> existingUser = userRepository.findByNationalIdInfo(user.getNationalIdInfo());
         if (existingUser.isPresent()) {
             log.error("Attempted to create user that already exists: {}", user);
             throw new UserAlreadyExistsException("User already exists");
@@ -40,12 +40,10 @@ public class UserService {
         log.info("User created with username: {}", username);
 
         int retryCount = 0;
-        int maxRetries = MAX_RETRIES;
-
         Throwable cause = null;
-        while (retryCount < maxRetries) {
+        while (retryCount < MAX_RETRIES) {
             try {
-                return userRepository.save(user);
+                return saveUser(user);
             } catch (DataIntegrityViolationException e) {
                 cause = e.getCause();
                 log.error("Data integrity violation: {}", cause != null ? cause.getMessage() : "Unknown cause");
@@ -53,7 +51,49 @@ public class UserService {
                 retryCount++;
             }
         }
-        throw new UserCreationFailedException("Failed to create user after " + maxRetries + " attempts", cause);
+        throw new UserCreationFailedException("Failed to create user after " + MAX_RETRIES + " attempts", cause);
+    }
+
+    public User findUserById(Long userId) throws UserNotFoundException {
+        return userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+    }
+
+    public User findUserByUsername(String username) throws UserNotFoundException {
+        return userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
+    }
+
+    public User updateUser(Long userId, User userDetails) throws UserNotFoundException {
+        User user = findUserById(userId);
+        if (userDetails.getName() != null) user.setName(userDetails.getName());
+        if (userDetails.getFirstSurname() != null) user.setFirstSurname(userDetails.getFirstSurname());
+        if (userDetails.getSecondSurname() != null) user.setSecondSurname(userDetails.getSecondSurname());
+        if (userDetails.getEmail() != null) user.setEmail(userDetails.getEmail());
+        if (userDetails.getNationalIdInfo() != null) user.setNationalIdInfo(updateNationalIdInfo(userDetails));
+        if (userDetails.getUsername() != null) user.setUsername(userDetails.getUsername());
+        if (userDetails.getGender() != null) user.setGender(userDetails.getGender());
+        if (userDetails.getIsActive() != null) user.setIsActive(userDetails.getIsActive());
+        return saveUser(user);
+    }
+
+    public void deleteUser(Long userId) {
+        log.info("Deleting user with id: {}", userId);
+        userRepository.deleteById(userId);
+    }
+
+    public User activateUser(Long userId) throws UserNotFoundException {
+        User user = findUserById(userId);
+        user.setIsActive(true);
+        return saveUser(user);
+    }
+
+    public User deactivateUser(Long userId) throws UserNotFoundException {
+        User user = findUserById(userId);
+        user.setIsActive(false);
+        return saveUser(user);
+    }
+
+    public User saveUser(User user) {
+        return userRepository.save(user);
     }
 
     private String generateUsername(User user) {
@@ -102,5 +142,16 @@ public class UserService {
             return potentialUsername;
         }
         return null;
+    }
+
+    private static NationalIdInfo updateNationalIdInfo(User userDetails) {
+        NationalIdInfo nationalIdInfo = new NationalIdInfo();
+        if (userDetails.getNationalIdInfo().getNationalId() != null) {
+            nationalIdInfo.setNationalId(userDetails.getNationalIdInfo().getNationalId());
+        }
+        if (userDetails.getNationalIdInfo().getCountry() != null) {
+            nationalIdInfo.setCountry(userDetails.getNationalIdInfo().getCountry());
+        }
+        return nationalIdInfo;
     }
 }
