@@ -1,5 +1,6 @@
 package com.example.campus.controller;
 
+import com.example.campus.entity.Permission;
 import com.example.campus.entity.Role;
 import com.example.campus.service.RoleService;
 import jakarta.validation.Valid;
@@ -53,5 +54,26 @@ public class RoleController {
         log.info("Deleting role with ID: {}", roleId);
         roleService.deleteRole(roleId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{roleId}/permissions")
+    public ResponseEntity<List<Permission>> getPermissionsByRoleId(@PathVariable Long roleId) {
+        log.info("Fetching permissions for role with ID: {}", roleId);
+        List<Permission> permissions = roleService.getPermissionsByRoleId(roleId);
+        return new ResponseEntity<>(permissions, HttpStatus.OK);
+    }
+
+    @PostMapping("/{roleId}/permission/{permissionId}")
+    public ResponseEntity<Role> addPermissionToRole(@PathVariable Long roleId, @PathVariable Long permissionId) {
+        log.info("Adding permission with ID: {} to role with ID: {}", permissionId, roleId);
+        Role role = roleService.addPermissionToRole(roleId, permissionId);
+        return new ResponseEntity<>(role, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{roleId}/permission/{permissionId}")
+    public ResponseEntity<Role> removePermissionFromRole(@PathVariable Long roleId, @PathVariable Long permissionId) {
+        log.info("Removing permission with ID: {} from role with ID: {}", permissionId, roleId);
+        Role role = roleService.removePermissionFromRole(roleId, permissionId);
+        return new ResponseEntity<>(role, HttpStatus.OK);
     }
 }

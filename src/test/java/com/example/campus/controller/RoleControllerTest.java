@@ -1,5 +1,6 @@
 package com.example.campus.controller;
 
+import com.example.campus.entity.Permission;
 import com.example.campus.entity.Role;
 import com.example.campus.service.RoleService;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,5 +94,49 @@ public class RoleControllerTest {
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
         verify(roleService, times(1)).deleteRole(roleId);
+    }
+
+    @Test
+    public void testGetPermissionsByRoleId() {
+        Long roleId = 1L;
+        List<Permission> mockPermissions = Collections.singletonList(new Permission());
+
+        when(roleService.getPermissionsByRoleId(roleId)).thenReturn(mockPermissions);
+
+        ResponseEntity<List<Permission>> response = roleController.getPermissionsByRoleId(roleId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockPermissions, response.getBody());
+        verify(roleService, times(1)).getPermissionsByRoleId(roleId);
+    }
+
+    @Test
+    public void testAddPermissionToRole() {
+        Long roleId = 1L;
+        Long permissionId = 2L;
+        Role updatedRole = new Role();
+
+        when(roleService.addPermissionToRole(roleId, permissionId)).thenReturn(updatedRole);
+
+        ResponseEntity<Role> response = roleController.addPermissionToRole(roleId, permissionId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedRole, response.getBody());
+        verify(roleService, times(1)).addPermissionToRole(roleId, permissionId);
+    }
+
+    @Test
+    public void testRemovePermissionFromRole() {
+        Long roleId = 1L;
+        Long permissionId = 2L;
+        Role updatedRole = new Role();
+
+        when(roleService.removePermissionFromRole(roleId, permissionId)).thenReturn(updatedRole);
+
+        ResponseEntity<Role> response = roleController.removePermissionFromRole(roleId, permissionId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedRole, response.getBody());
+        verify(roleService, times(1)).removePermissionFromRole(roleId, permissionId);
     }
 }

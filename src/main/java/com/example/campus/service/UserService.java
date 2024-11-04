@@ -120,6 +120,13 @@ public class UserService {
         return getCourseRoleDTOS(userId, courses);
     }
 
+    public List<Permission> getPermissionsByUserId(Long userId) throws UserNotFoundException {
+        log.info("Getting permissions for user with id: {}", userId);
+        User user = findUserById(userId);
+        log.info("User found: {}", user);
+        return user.getPermissions();
+    }
+
     public User addRoleToUser(Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
         User user = findUserById(userId);
         Role role = roleService.findRoleById(roleId);

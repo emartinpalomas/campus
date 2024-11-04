@@ -2,6 +2,7 @@ package com.example.campus.controller;
 
 import com.example.campus.dto.CourseRoleDTO;
 import com.example.campus.entity.Course;
+import com.example.campus.entity.Permission;
 import com.example.campus.entity.User;
 import com.example.campus.service.UserService;
 import jakarta.validation.Valid;
@@ -96,6 +97,13 @@ public class UserController {
         log.info("Fetching open courses and roles for user ID: {}", userId);
         List<CourseRoleDTO> courseRoleDTOs = userService.getOpenCoursesAndRolesByUserId(userId);
         return new ResponseEntity<>(courseRoleDTOs, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}/permissions")
+    public ResponseEntity<List<Permission>> getPermissionsByUserId(@PathVariable Long userId) {
+        log.info("Fetching permissions for user ID: {}", userId);
+        List<Permission> permissions = userService.getPermissionsByUserId(userId);
+        return new ResponseEntity<>(permissions, HttpStatus.OK);
     }
 
     @PostMapping("/{userId}/role/{roleId}")

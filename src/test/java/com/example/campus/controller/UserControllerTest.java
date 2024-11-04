@@ -2,6 +2,7 @@ package com.example.campus.controller;
 
 import com.example.campus.dto.CourseRoleDTO;
 import com.example.campus.entity.Course;
+import com.example.campus.entity.Permission;
 import com.example.campus.entity.User;
 import com.example.campus.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -179,6 +181,20 @@ public class UserControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(mockCourseRoles, response.getBody());
         verify(userService, times(1)).getOpenCoursesAndRolesByUserId(userId);
+    }
+
+    @Test
+    public void testGetPermissionsByUserId() {
+        Long userId = 1L;
+        List<Permission> mockPermissions = Collections.singletonList(new Permission());
+
+        when(userService.getPermissionsByUserId(userId)).thenReturn(mockPermissions);
+
+        ResponseEntity<List<Permission>> response = userController.getPermissionsByUserId(userId);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(mockPermissions, response.getBody());
+        verify(userService, times(1)).getPermissionsByUserId(userId);
     }
 
     @Test

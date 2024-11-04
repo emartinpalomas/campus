@@ -105,4 +105,17 @@ public class User extends Auditable {
         }
         return openCourses;
     }
+
+    @JsonIgnore
+    public List<Permission> getPermissions() {
+        List<Permission> permissions = new ArrayList<>();
+        for (Role role : roles) {
+            permissions.addAll(role.getPermissions());
+        }
+        for (CourseRegistration registration : registrations) {
+            Role role = registration.getRole();
+            permissions.addAll(role.getPermissions());
+        }
+        return permissions;
+    }
 }

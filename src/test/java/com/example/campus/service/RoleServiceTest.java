@@ -1,5 +1,6 @@
 package com.example.campus.service;
 
+import com.example.campus.entity.Permission;
 import com.example.campus.entity.Role;
 import com.example.campus.exception.RoleNotFoundException;
 import com.example.campus.repository.RoleRepository;
@@ -16,13 +17,15 @@ import static org.mockito.Mockito.when;
 
 public class RoleServiceTest {
 
+    private PermissionService permissionService;
     private RoleService roleService;
     private RoleRepository roleRepository;
 
     @BeforeEach
     public void setUp() {
         roleRepository = Mockito.mock(RoleRepository.class);
-        roleService = new RoleService(roleRepository);
+        permissionService = Mockito.mock(PermissionService.class);
+        roleService = new RoleService(permissionService, roleRepository);
     }
 
     @Test
@@ -97,5 +100,68 @@ public class RoleServiceTest {
         roleService.deleteRole(1L);
 
         verify(roleRepository).deleteById(1L);
+    }
+
+    @Test
+    public void getPermissionsByRoleId() {
+        Permission permission1 = new Permission();
+        permission1.setId(2L);
+        Permission permission2 = new Permission();
+        permission2.setId(3L);
+        Role role = new Role();
+        role.setId(1L);
+        role.getPermissions().add(permission1);
+        role.getPermissions().add(permission2);
+
+        when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
+
+        List<Permission> permissions = roleService.getPermissionsByRoleId(1L);
+
+        assertEquals(2, permissions.size());
+        assertTrue(permissions.contains(permission1));
+        assertTrue(permissions.contains(permission2));
+    }
+
+    @Test
+    public void addPermissionToRole() throws RoleNotFoundException {
+        Role role = new Role();
+        role.setId(1L);
+        Permission permission = new Permission();
+        permission.setId(2L);
+
+        when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
+        when(permissionService.findPermissionById(2L)).thenReturn(permission);
+        when(roleRepository.save(role)).thenReturn(role);
+
+        Role result = roleService.addPermissionToRole(1L, 2L);
+
+        assertTrue(result.getPermissions().contains(permission));
+        verify(roleRepository).save(role);
+
+        when(roleRepository.findById(2L)).thenReturn(Optional.empty());
+
+        assertThrows(RoleNotFoundException.class, () -> roleService.addPermissionToRole(2L, 2L));
+    }
+
+    @Test
+    public void removePermissionFromRole() throws RoleNotFoundException {
+        Role role = new Role();
+        role.setId(1L);
+        Permission permission = new Permission();
+        permission.setId(2L);
+        role.getPermissions().add(permission);
+
+        when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
+        when(permissionService.findPermissionById(2L)).thenReturn(permission);
+        when(roleRepository.save(role)).thenReturn(role);
+
+        Role result = roleService.removePermissionFromRole(1L, 2L);
+
+        assertFalse(result.getPermissions().contains(permission));
+        verify(roleRepository).save(role);
+
+        when(roleRepository.findById(2L)).thenReturn(Optional.empty());
+
+        assertThrows(RoleNotFoundException.class, () -> roleService.removePermissionFromRole(2L, 2L));
     }
 }
