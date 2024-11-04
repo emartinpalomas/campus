@@ -25,7 +25,8 @@ public class RoleServiceTest {
     public void setUp() {
         roleRepository = Mockito.mock(RoleRepository.class);
         permissionService = Mockito.mock(PermissionService.class);
-        roleService = new RoleService(permissionService, roleRepository);
+        AuditableService auditableService = Mockito.mock(AuditableService.class);
+        roleService = new RoleService(auditableService, permissionService, roleRepository);
     }
 
     @Test
@@ -49,10 +50,11 @@ public class RoleServiceTest {
     public void saveRole() {
         Role role = new Role();
         role.setId(1L);
+        String requester = "requester";
 
         when(roleRepository.save(role)).thenReturn(role);
 
-        Role result = roleService.saveRole(role);
+        Role result = roleService.saveRole(requester, role);
 
         assertEquals(1L, result.getId());
         verify(roleRepository).save(role);
@@ -81,23 +83,24 @@ public class RoleServiceTest {
         role.setName("name");
         Role roleDetails = new Role();
         roleDetails.setName("new name");
+        String requester = "requester";
 
         when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
         when(roleRepository.save(role)).thenReturn(role);
 
-        Role updateRole = roleService.updateRole(1L, roleDetails);
+        Role updateRole = roleService.updateRole(requester, 1L, roleDetails);
 
         assertEquals("new name", updateRole.getName());
         verify(roleRepository).save(role);
 
         when(roleRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertThrows(RoleNotFoundException.class, () -> roleService.updateRole(2L, roleDetails));
+        assertThrows(RoleNotFoundException.class, () -> roleService.updateRole(requester, 2L, roleDetails));
     }
 
     @Test
     public void deleteRole() {
-        roleService.deleteRole(1L);
+        roleService.deleteRole("requester", 1L);
 
         verify(roleRepository).deleteById(1L);
     }
@@ -128,19 +131,20 @@ public class RoleServiceTest {
         role.setId(1L);
         Permission permission = new Permission();
         permission.setId(2L);
+        String requester = "requester";
 
         when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
         when(permissionService.findPermissionById(2L)).thenReturn(permission);
         when(roleRepository.save(role)).thenReturn(role);
 
-        Role result = roleService.addPermissionToRole(1L, 2L);
+        Role result = roleService.addPermissionToRole(requester, 1L, 2L);
 
         assertTrue(result.getPermissions().contains(permission));
         verify(roleRepository).save(role);
 
         when(roleRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertThrows(RoleNotFoundException.class, () -> roleService.addPermissionToRole(2L, 2L));
+        assertThrows(RoleNotFoundException.class, () -> roleService.addPermissionToRole(requester, 2L, 2L));
     }
 
     @Test
@@ -150,18 +154,19 @@ public class RoleServiceTest {
         Permission permission = new Permission();
         permission.setId(2L);
         role.getPermissions().add(permission);
+        String requester = "requester";
 
         when(roleRepository.findById(1L)).thenReturn(Optional.of(role));
         when(permissionService.findPermissionById(2L)).thenReturn(permission);
         when(roleRepository.save(role)).thenReturn(role);
 
-        Role result = roleService.removePermissionFromRole(1L, 2L);
+        Role result = roleService.removePermissionFromRole(requester, 1L, 2L);
 
         assertFalse(result.getPermissions().contains(permission));
         verify(roleRepository).save(role);
 
         when(roleRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertThrows(RoleNotFoundException.class, () -> roleService.removePermissionFromRole(2L, 2L));
+        assertThrows(RoleNotFoundException.class, () -> roleService.removePermissionFromRole(requester, 2L, 2L));
     }
 }

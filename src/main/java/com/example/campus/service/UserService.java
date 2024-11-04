@@ -4,6 +4,7 @@ import com.example.campus.dto.CourseRoleDTO;
 import com.example.campus.entity.*;
 import com.example.campus.exception.*;
 import com.example.campus.repository.UserRepository;
+import com.example.campus.util.EntitySaver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -16,16 +17,19 @@ import java.util.stream.Collectors;
 public class UserService {
     public static final int USERNAME_MAX_LENGTH = 20;
     public static final int MAX_RETRIES = 3;
+    private final AuditableService auditableService;
     private final RoleService roleService;
     private final TextSanitizer textSanitizer;
     private final UserRepository userRepository;
     private CourseService courseService;
 
     public UserService(
+            AuditableService auditableService,
             RoleService roleService,
             TextSanitizer textSanitizer,
             UserRepository userRepository
     ) {
+        this.auditableService = auditableService;
         this.roleService = roleService;
         this.textSanitizer = textSanitizer;
         this.userRepository = userRepository;
@@ -39,7 +43,7 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public User createUser(User user) throws UserAlreadyExistsException, UserCreationFailedException {
+    public User createUser(String requester, User user) throws UserAlreadyExistsException, UserCreationFailedException {
         Optional<User> existingUser = userRepository.findByNationalIdInfo(user.getNationalIdInfo());
         if (existingUser.isPresent()) {
             log.error("Attempted to create user that already exists: {}", user);
@@ -47,13 +51,13 @@ public class UserService {
         }
         String username = generateUsername(user);
         user.setUsername(username);
-        log.info("User created with username: {}", username);
+        log.info("User created with username: {} by user: {}", username, requester);
 
         int retryCount = 0;
         Throwable cause = null;
         while (retryCount < MAX_RETRIES) {
             try {
-                return saveUser(user);
+                return saveUser(requester, user);
             } catch (DataIntegrityViolationException e) {
                 cause = e.getCause();
                 log.error("Data integrity violation: {}", cause != null ? cause.getMessage() : "Unknown cause");
@@ -72,7 +76,7 @@ public class UserService {
         return userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
     }
 
-    public User updateUser(Long userId, User userDetails) throws UserNotFoundException {
+    public User updateUser(String requester, Long userId, User userDetails) throws UserNotFoundException {
         User user = findUserById(userId);
         if (userDetails.getName() != null) user.setName(userDetails.getName());
         if (userDetails.getFirstSurname() != null) user.setFirstSurname(userDetails.getFirstSurname());
@@ -82,11 +86,11 @@ public class UserService {
         if (userDetails.getUsername() != null) user.setUsername(userDetails.getUsername());
         if (userDetails.getGender() != null) user.setGender(userDetails.getGender());
         if (userDetails.getIsActive() != null) user.setIsActive(userDetails.getIsActive());
-        return saveUser(user);
+        return saveUser(requester, user);
     }
 
-    public void deleteUser(Long userId) {
-        log.info("Deleting user with id: {}", userId);
+    public void deleteUser(String requester, Long userId) {
+        log.info("Deleting user with id: {} by user: {}", userId, requester);
         userRepository.deleteById(userId);
     }
 
@@ -127,34 +131,39 @@ public class UserService {
         return user.getPermissions();
     }
 
-    public User addRoleToUser(Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
+    public List<Permission> getPermissionsByUsername(String username) throws UserNotFoundException {
+        User user = findUserByUsername(username);
+        return user.getPermissions();
+    }
+
+    public User addRoleToUser(String requester, Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
         User user = findUserById(userId);
         Role role = roleService.findRoleById(roleId);
         user.getRoles().add(role);
-        return saveUser(user);
+        return saveUser(requester, user);
     }
 
-    public User removeRoleFromUser(Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
+    public User removeRoleFromUser(String requester, Long userId, Long roleId) throws RoleNotFoundException, UserNotFoundException {
         User user = findUserById(userId);
         Role role = roleService.findRoleById(roleId);
         user.getRoles().remove(role);
-        return saveUser(user);
+        return saveUser(requester, user);
     }
 
-    public User activateUser(Long userId) throws UserNotFoundException {
+    public User activateUser(String requester, Long userId) throws UserNotFoundException {
         User user = findUserById(userId);
         user.setIsActive(true);
-        return saveUser(user);
+        return saveUser(requester, user);
     }
 
-    public User deactivateUser(Long userId) throws UserNotFoundException {
+    public User deactivateUser(String requester, Long userId) throws UserNotFoundException {
         User user = findUserById(userId);
         user.setIsActive(false);
-        return saveUser(user);
+        return saveUser(requester, user);
     }
 
-    public User saveUser(User user) {
-        return userRepository.save(user);
+    public User saveUser(String requester, User user) {
+        return EntitySaver.saveEntity(auditableService, userRepository, requester, user);
     }
 
     private String generateUsername(User user) {

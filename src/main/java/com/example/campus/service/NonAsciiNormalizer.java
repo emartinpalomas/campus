@@ -8,7 +8,7 @@ import java.text.Normalizer;
 public class NonAsciiNormalizer implements TextSanitizer {
     @Override
     public String normalize(String input) {
-        return Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+        return Normalizer.normalize(input, Normalizer.Form.NFD)
                 .replaceAll("\\s+", "")
                 .replaceAll("[^\\p{ASCII}]", "")
                 .toLowerCase();

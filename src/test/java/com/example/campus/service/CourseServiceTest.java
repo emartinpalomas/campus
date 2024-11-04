@@ -34,7 +34,8 @@ public class CourseServiceTest {
         courseRegistrationRepository = Mockito.mock(CourseRegistrationRepository.class);
         userService = Mockito.mock(UserService.class);
         roleService = Mockito.mock(RoleService.class);
-        courseService = new CourseService(courseRepository, courseRegistrationRepository, roleService);
+        AuditableService auditableService = Mockito.mock(AuditableService.class);
+        courseService = new CourseService(auditableService, courseRepository, courseRegistrationRepository, roleService);
         courseService.setUserService(userService);
     }
 
@@ -59,10 +60,11 @@ public class CourseServiceTest {
     public void testSaveCourse() {
         Course course = new Course();
         course.setId(1L);
+        String requester = "requester";
 
         when(courseRepository.save(course)).thenReturn(course);
 
-        Course result = courseService.saveCourse(course);
+        Course result = courseService.saveCourse(requester, course);
 
         assertEquals(1L, result.getId());
         verify(courseRepository).save(course);
@@ -134,7 +136,7 @@ public class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
         when(courseRepository.save(any(Course.class))).thenReturn(course);
 
-        Course updatedCourse = courseService.updateCourse(1L, courseDetails);
+        Course updatedCourse = courseService.updateCourse("requester", 1L, courseDetails);
 
         assertEquals("Updated Course", updatedCourse.getName());
         assertEquals(LocalDateTime.now().minusDays(1).getDayOfYear(), updatedCourse.getDates().getStartDate().getDayOfYear());
@@ -144,7 +146,7 @@ public class CourseServiceTest {
 
     @Test
     public void testDeleteCourse() {
-        courseService.deleteCourse(1L);
+        courseService.deleteCourse("requester", 1L);
 
         verify(courseRepository).deleteById(1L);
     }
@@ -190,7 +192,7 @@ public class CourseServiceTest {
         when(userService.findUserById(2L)).thenReturn(user);
         when(roleService.findRoleById(3L)).thenReturn(role);
 
-        courseService.addUserToCourse(1L, 2L, 3L);
+        courseService.addUserToCourse("requester", 1L, 2L, 3L);
 
         verify(courseRegistrationRepository).save(any(CourseRegistration.class));
         verify(courseRepository).save(course);
@@ -213,7 +215,7 @@ public class CourseServiceTest {
         when(userService.findUserById(2L)).thenReturn(user);
         doNothing().when(courseRegistrationRepository).deleteById(3L);
 
-        courseService.removeUserFromCourse(1L, 2L);
+        courseService.removeUserFromCourse("requester", 1L, 2L);
 
         assertTrue(course.getRegistrations().isEmpty());
         verify(courseRegistrationRepository).delete(courseRegistration);
@@ -347,7 +349,7 @@ public class CourseServiceTest {
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
-        courseService.openCourse(1L);
+        courseService.openCourse("requester", 1L);
 
         assertEquals(LocalDateTime.now().getDayOfYear(), course.getDates().getStartDate().getDayOfYear());
         assertNull(course.getDates().getEndDate());
@@ -364,7 +366,7 @@ public class CourseServiceTest {
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
-        courseService.closeCourse(1L);
+        courseService.closeCourse("requester", 1L);
 
         assertEquals(LocalDateTime.now().getDayOfYear(), course.getDates().getEndDate().getDayOfYear());
         assertNull(course.getDates().getStartDate());
@@ -379,7 +381,7 @@ public class CourseServiceTest {
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
-        courseService.activateCourse(1L);
+        courseService.activateCourse("requester", 1L);
 
         assertTrue(course.getIsActive());
         verify(courseRepository).save(course);
@@ -393,7 +395,7 @@ public class CourseServiceTest {
 
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
 
-        courseService.deactivateCourse(1L);
+        courseService.deactivateCourse("requester", 1L);
 
         assertFalse(course.getIsActive());
         verify(courseRepository).save(course);

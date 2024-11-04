@@ -3,7 +3,9 @@ package com.example.campus.service;
 import com.example.campus.dto.CourseRoleDTO;
 import com.example.campus.entity.*;
 import com.example.campus.exception.CourseNotFoundException;
+import com.example.campus.exception.RoleNotFoundException;
 import com.example.campus.exception.UserNotFoundException;
+import com.example.campus.repository.RoleRepository;
 import com.example.campus.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,10 +24,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class UserServiceTest {
 
     @Mock
+    private AuditableService auditableService;
+    @Mock
     private RoleService roleService;
+    @Autowired
+    private RoleRepository roleRepository;
     @Autowired
     private UserRepository userRepository;
     private UserService userService;
@@ -33,7 +41,7 @@ public class UserServiceTest {
 
     @BeforeEach
     public void setup() {
-        userService = new UserService(roleService, new DummyNormalizer(), userRepository);
+        userService = new UserService(auditableService, roleService, new DummyNormalizer(), userRepository);
         userService.setCourseService(courseService);
     }
 
@@ -82,7 +90,7 @@ public class UserServiceTest {
             User user = (User) userAndUsername.get()[0];
             String expectedUsername = (String) userAndUsername.get()[1];
 
-            User createdUser = userService.createUser(user);
+            User createdUser = userService.createUser("requester", user);
 
             assertEquals(expectedUsername, createdUser.getUsername());
         }
@@ -117,7 +125,7 @@ public class UserServiceTest {
         User userDetails = new User();
         userDetails.setName("Alice Updated");
 
-        User updatedUser = userService.updateUser(user.getId(), userDetails);
+        User updatedUser = userService.updateUser("requester", user.getId(), userDetails);
 
         assertEquals("Alice Updated", updatedUser.getName());
     }
@@ -126,7 +134,7 @@ public class UserServiceTest {
     public void testDeleteUser() {
         User user = getUser();
 
-        userService.deleteUser(user.getId());
+        userService.deleteUser("requester", user.getId());
 
         assertFalse(userRepository.findById(user.getId()).isPresent());
     }
@@ -311,12 +319,80 @@ public class UserServiceTest {
     }
 
     @Test
+    public void testGetPermissionsByUserId() throws UserNotFoundException {
+        User user = getUser();
+        Role role1 = createRole();
+        Role role2 = createRole2();
+        Permission permission1 = createPermission();
+        Permission permission2 = createPermission2();
+
+        role1.getPermissions().add(permission1);
+        role2.getPermissions().add(permission2);
+        user.getRoles().add(role1);
+        user.getRoles().add(role2);
+
+        List<Permission> permissions = userService.getPermissionsByUserId(user.getId());
+
+        assertEquals(2, permissions.size());
+        assertTrue(permissions.contains(permission1));
+        assertTrue(permissions.contains(permission2));
+    }
+
+    @Test
+    public void testGetPermissionsByUsername() throws UserNotFoundException {
+        User user = getUser();
+        Role role1 = createRole();
+        Role role2 = createRole2();
+        Permission permission1 = createPermission();
+        Permission permission2 = createPermission2();
+
+        role1.getPermissions().add(permission1);
+        role2.getPermissions().add(permission2);
+        user.getRoles().add(role1);
+        user.getRoles().add(role2);
+
+        List<Permission> permissions = userService.getPermissionsByUsername(user.getUsername());
+
+        assertEquals(2, permissions.size());
+        assertTrue(permissions.contains(permission1));
+        assertTrue(permissions.contains(permission2));
+    }
+
+    @Test
+    public void testAddRoleToUser() {
+        User user = getUser();
+        Role role = createRole();
+        roleRepository.save(role);
+
+        when(roleService.findRoleById(role.getId())).thenReturn(role);
+
+        User updatedUser = userService.addRoleToUser("requester", user.getId(), role.getId());
+
+        assertTrue(updatedUser.getRoles().contains(role));
+    }
+
+    @Test
+    public void testRemoveRoleFromUser() throws RoleNotFoundException, UserNotFoundException {
+        User user = getUser();
+        Role role = createRole();
+        roleRepository.save(role);
+        user.getRoles().add(role);
+        userRepository.save(user);
+
+        when(roleService.findRoleById(role.getId())).thenReturn(role);
+
+        User updatedUser = userService.removeRoleFromUser("requester", user.getId(), role.getId());
+
+        assertFalse(updatedUser.getRoles().contains(role));
+    }
+
+    @Test
     public void testActivateUser() {
         User user = getUser();
         user.setIsActive(false);
         userRepository.save(user);
 
-        userService.activateUser(user.getId());
+        userService.activateUser("requester", user.getId());
 
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
         assertTrue(updatedUser.getIsActive());
@@ -328,7 +404,7 @@ public class UserServiceTest {
         user.setIsActive(true);
         userRepository.save(user);
 
-        userService.deactivateUser(user.getId());
+        userService.deactivateUser("requester", user.getId());
 
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
         assertFalse(updatedUser.getIsActive());
@@ -337,19 +413,20 @@ public class UserServiceTest {
     @Test
     public void testSaveUser() {
         User user = getUser();
-        User savedUser = userService.saveUser(user);
+        User savedUser = userService.saveUser("requester", user);
         assertNotNull(savedUser);
         assertEquals("Alice", savedUser.getName());
     }
 
+
     private User getUser() {
         User user = createUser("Alice", "123450", "alice@example.com");
-        return userService.createUser(user);
+        return userService.createUser("requester", user);
     }
 
     private User getUser2() {
         User user = createUser("Bob", "123451", "bob@example.com");
-        return userService.createUser(user);
+        return userService.createUser("requester", user);
     }
 
     private Role createRole() {
@@ -364,6 +441,20 @@ public class UserServiceTest {
         role.setId(2L);
         role.setName("Role 2");
         return role;
+    }
+
+    private Permission createPermission() {
+        Permission permission = new Permission();
+        permission.setId(1L);
+        permission.setName("Permission 1");
+        return permission;
+    }
+
+    private Permission createPermission2() {
+        Permission permission = new Permission();
+        permission.setId(2L);
+        permission.setName("Permission 2");
+        return permission;
     }
 
     private User createUser(String name, String nationalId, String email) {

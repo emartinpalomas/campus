@@ -96,7 +96,7 @@ public class PasswordResetServiceTest {
         passwordResetService.resetPassword(token, newPassword);
 
         verify(mockUser, times(1)).setPassword(newPassword);
-        verify(userService, times(1)).saveUser(mockUser);
+        verify(userService, times(1)).saveUser("testUser", mockUser);
         verify(passwordResetTokenRepository, times(1)).delete(mockToken);
     }
 
@@ -110,7 +110,7 @@ public class PasswordResetServiceTest {
         assertThrows(InvalidTokenException.class, () -> passwordResetService.resetPassword(token, newPassword));
 
         verify(mockUser, never()).setPassword(anyString());
-        verify(userService, never()).saveUser(any(User.class));
+        verify(userService, never()).saveUser(any(String.class), any(User.class));
         verify(passwordResetTokenRepository, never()).delete(any(PasswordResetToken.class));
     }
 
@@ -126,7 +126,7 @@ public class PasswordResetServiceTest {
         assertThrows(InvalidTokenException.class, () -> passwordResetService.resetPassword(token, newPassword));
 
         verify(mockUser, never()).setPassword(anyString());
-        verify(userService, never()).saveUser(any(User.class));
+        verify(userService, never()).saveUser(any(String.class), any(User.class));
         verify(passwordResetTokenRepository, never()).delete(any(PasswordResetToken.class));
     }
 }

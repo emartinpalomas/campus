@@ -3,8 +3,12 @@ package com.example.campus.entity;
 import com.example.campus.validation.ValidNationalId;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -17,6 +21,7 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @Table(name = "users", uniqueConstraints = @UniqueConstraint(columnNames = "username"))
+@Slf4j
 public class User extends Auditable {
     @Column(length = 50, nullable = false)
     @NotBlank
@@ -108,14 +113,20 @@ public class User extends Auditable {
 
     @JsonIgnore
     public List<Permission> getPermissions() {
+        log.info("Fetching permissions for user: {}", this);
         List<Permission> permissions = new ArrayList<>();
+        log.info("Fetching permissions for roles: {}", roles);
         for (Role role : roles) {
+            log.info("Fetching permissions for role: {}", role);
             permissions.addAll(role.getPermissions());
         }
         for (CourseRegistration registration : registrations) {
+            log.info("Fetching permissions for registration: {}", registration);
             Role role = registration.getRole();
+            log.info("Fetching permissions for role: {}", role);
             permissions.addAll(role.getPermissions());
         }
+        log.info("Returning permissions: {}", permissions);
         return permissions;
     }
 }

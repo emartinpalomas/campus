@@ -5,6 +5,7 @@ import com.example.campus.entity.User;
 import com.example.campus.exception.InvalidTokenException;
 import com.example.campus.exception.UserNotFoundException;
 import com.example.campus.repository.PasswordResetTokenRepository;
+import com.example.campus.util.SecurityUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -43,11 +44,12 @@ public class PasswordResetService {
     }
 
     public void resetPassword(String token, String newPassword) throws InvalidTokenException {
+        String username = SecurityUtil.getUsername();
         if (validatePasswordResetToken(token)) {
             PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByToken(token);
             User user = passwordResetToken.getUser();
             user.setPassword(passwordEncoder.encode(newPassword));
-            userService.saveUser(user);
+            userService.saveUser(username, user);
             passwordResetTokenRepository.delete(passwordResetToken);
         } else {
             throw new InvalidTokenException("Invalid or expired token");

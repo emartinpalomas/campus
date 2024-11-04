@@ -12,21 +12,23 @@ public class AppConfig {
 
     @Bean
     public CourseService courseService(
+            AuditableService auditableService,
             CourseRepository courseRepository,
             CourseRegistrationRepository courseRegistrationRepository,
             RoleService roleService
     ) {
-        return new CourseService(courseRepository, courseRegistrationRepository, roleService);
+        return new CourseService(auditableService, courseRepository, courseRegistrationRepository, roleService);
     }
 
     @Bean
     public UserService userService(
+            AuditableService auditableService,
             RoleService roleService,
             TextSanitizer textSanitizer,
             UserRepository userRepository,
             CourseService courseService
     ) {
-        UserService userService = new UserService(roleService, textSanitizer, userRepository);
+        UserService userService = new UserService(auditableService, roleService, textSanitizer, userRepository);
         userService.setCourseService(courseService);
         courseService.setUserService(userService);
         return userService;

@@ -22,7 +22,8 @@ public class PermissionServiceTest {
     @BeforeEach
     public void setUp() {
         permissionRepository = Mockito.mock(PermissionRepository.class);
-        permissionService = new PermissionService(permissionRepository);
+        AuditableService auditableService = Mockito.mock(AuditableService.class);
+        permissionService = new PermissionService(auditableService, permissionRepository);
     }
 
     @Test
@@ -62,10 +63,11 @@ public class PermissionServiceTest {
     public void savePermission() {
         Permission permission = new Permission();
         permission.setId(1L);
+        String requester = "requester";
 
         when(permissionRepository.save(permission)).thenReturn(permission);
 
-        Permission result = permissionService.savePermission(permission);
+        Permission result = permissionService.savePermission(requester, permission);
 
         assertEquals(1L, result.getId());
         verify(permissionRepository).save(permission);
@@ -78,23 +80,24 @@ public class PermissionServiceTest {
         permission.setName("name");
         Permission permissionDetails = new Permission();
         permissionDetails.setName("new name");
+        String requester = "requester";
 
         when(permissionRepository.findById(1L)).thenReturn(Optional.of(permission));
         when(permissionRepository.save(permission)).thenReturn(permission);
 
-        Permission updatePermission = permissionService.updatePermission(1L, permissionDetails);
+        Permission updatePermission = permissionService.updatePermission(requester, 1L, permissionDetails);
 
         assertEquals("new name", updatePermission.getName());
         verify(permissionRepository).save(permission);
 
         when(permissionRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertThrows(PermissionNotFoundException.class, () -> permissionService.updatePermission( 2L, permissionDetails));
+        assertThrows(PermissionNotFoundException.class, () -> permissionService.updatePermission(requester, 2L, permissionDetails));
     }
 
     @Test
     public void deletePermission() {
-        permissionService.deletePermission(1L);
+        permissionService.deletePermission("requester", 1L);
 
         verify(permissionRepository).deleteById(1L);
     }
