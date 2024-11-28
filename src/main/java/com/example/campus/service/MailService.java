@@ -30,6 +30,7 @@ public class MailService {
             log.info("Password reset mail sent to {}", user.getEmail());
         } catch (MailException e) {
             log.error("Error occurred when sending password reset mail to {}", user.getEmail(), e);
+            throw e;
         }
     }
 }

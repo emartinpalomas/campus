@@ -2,7 +2,9 @@ package com.example.campus.validation;
 
 import jakarta.validation.ConstraintValidatorContext;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 public class SpainNationalIdValidatorTest {
@@ -36,6 +38,12 @@ public class SpainNationalIdValidatorTest {
     @Test
     public void testInvalidLetter() {
         String nationalId = "X1234567-A";
+        assertFalse(validator.validate(nationalId, context));
+    }
+
+    @Test
+    public void testInvalidNumberFormat() {
+        String nationalId = "X12A4567-L";
         assertFalse(validator.validate(nationalId, context));
     }
 

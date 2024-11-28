@@ -8,11 +8,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target({ElementType.FIELD})
+@Constraint(validatedBy = EndDateAfterStartDateValidator.class)
+@Target({ ElementType.FIELD })
 @Retention(RetentionPolicy.RUNTIME)
-@Constraint(validatedBy = NationalIdValidator.class)
-public @interface ValidNationalId {
-    String message() default "Invalid national ID";
+public @interface EndDateAfterStartDate {
+    String message() default "End date must be after start date";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }
