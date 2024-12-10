@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
     private String supportEmail;
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, String>> handleConstraintViolationException(ConstraintViolationException exception) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException exception) {
         log.error("Validation error: {}", exception.getMessage(), exception);
         Map<String, String> errors = new HashMap<>();
         exception.getConstraintViolations().forEach(violation -> {
@@ -32,36 +32,41 @@ public class GlobalExceptionHandler {
             String errorMessage = violation.getMessage();
             errors.put(propertyPath, errorMessage);
         });
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+        ErrorResponse errorResponse = new ErrorResponse("Validation error", errors.toString());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGlobalException(Exception exception) {
+    public ResponseEntity<ErrorResponse> handleGlobalException(Exception exception) {
         log.error("An error occurred: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        ErrorResponse errorResponse = new ErrorResponse("An error occurred", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<String> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
         log.error("Invalid request body: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>("Invalid request body", HttpStatus.BAD_REQUEST);
+        ErrorResponse errorResponse = new ErrorResponse("Invalid request body", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<String> handleInvalidTokenException(InvalidTokenException exception) {
+    public ResponseEntity<ErrorResponse> handleInvalidTokenException(InvalidTokenException exception) {
         log.error("Invalid token: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>("Invalid token", HttpStatus.BAD_REQUEST);
+        ErrorResponse errorResponse = new ErrorResponse("Invalid token", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MailException.class)
-    public ResponseEntity<String> handleMailException(MailException exception) {
+    public ResponseEntity<ErrorResponse> handleMailException(MailException exception) {
         log.error("Mail exception: {}", exception.getMessage(), exception);
         String message = String.format("An error occurred while processing your request. Please contact %s for assistance.", supportEmail);
-        return new ResponseEntity<>(message, HttpStatus.INTERNAL_SERVER_ERROR);
+        ErrorResponse errorResponse = new ErrorResponse(message, exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException exception) {
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException exception) {
         log.error("Validation exception: {}", exception.getMessage(), exception);
         Map<String, String> errors = new HashMap<>();
         exception.getBindingResult().getAllErrors().forEach(error -> {
@@ -69,42 +74,49 @@ public class GlobalExceptionHandler {
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+        ErrorResponse errorResponse = new ErrorResponse("Validation error", errors.toString());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(CourseNotFoundException.class)
-    public ResponseEntity<String> handleCourseNotFoundException(CourseNotFoundException exception) {
+    public ResponseEntity<ErrorResponse> handleCourseNotFoundException(CourseNotFoundException exception) {
         log.error("Course not found: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+        ErrorResponse errorResponse = new ErrorResponse("Course not found", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(PermissionNotFoundException.class)
-    public ResponseEntity<String> handlePermissionNotFoundException(PermissionNotFoundException exception) {
+    public ResponseEntity<ErrorResponse> handlePermissionNotFoundException(PermissionNotFoundException exception) {
         log.error("Permission not found: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+        ErrorResponse errorResponse = new ErrorResponse("Permission not found", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(RoleNotFoundException.class)
-    public ResponseEntity<String> handleRoleNotFoundException(RoleNotFoundException exception) {
+    public ResponseEntity<ErrorResponse> handleRoleNotFoundException(RoleNotFoundException exception) {
         log.error("Role not found: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+        ErrorResponse errorResponse = new ErrorResponse("Role not found", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<String> handleUserAlreadyExistsException(UserAlreadyExistsException exception) {
+    public ResponseEntity<ErrorResponse> handleUserAlreadyExistsException(UserAlreadyExistsException exception) {
         log.error("User already exists: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.CONFLICT);
+        ErrorResponse errorResponse = new ErrorResponse("User already exists", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(UserCreationFailedException.class)
-    public ResponseEntity<String> handleUserCreationFailedException(UserCreationFailedException exception) {
+    public ResponseEntity<ErrorResponse> handleUserCreationFailedException(UserCreationFailedException exception) {
         log.error("User creation failed: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        ErrorResponse errorResponse = new ErrorResponse("User creation failed", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<String> handleUserNotFoundException(UserNotFoundException exception) {
+    public ResponseEntity<ErrorResponse> handleUserNotFoundException(UserNotFoundException exception) {
         log.error("User not found: {}", exception.getMessage(), exception);
-        return new ResponseEntity<>(exception.getMessage(), HttpStatus.NOT_FOUND);
+        ErrorResponse errorResponse = new ErrorResponse("User not found", exception.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 }
